@@ -54,7 +54,28 @@ services:
       - frontend_net
     depends_on:
       - app
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: attendance_prometheus
+    restart: always
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+      - backend_net
+      - frontend_net
 
+  grafana:
+    image: grafana/grafana:10.0.0
+    container_name: attendance_grafana
+    restart: always
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=AdminStrongPass2026!
+    networks:
+      - frontend_net
+    depends_on:
+      - prometheus
 networks:
   frontend_net:
     driver: bridge
