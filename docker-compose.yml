@@ -54,6 +54,7 @@ services:
       - frontend_net
     depends_on:
       - app
+
   prometheus:
     image: prom/prometheus:v2.45.0
     container_name: attendance_prometheus
@@ -76,6 +77,29 @@ services:
       - frontend_net
     depends_on:
       - prometheus
+
+  loki:
+    image: grafana/loki:2.8.4
+    container_name: attendance_loki
+    restart: always
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/local-config.yaml:ro
+    networks:
+      - backend_net
+      - frontend_net
+
+  promtail:
+    image: grafana/promtail:2.8.4
+    container_name: attendance_promtail
+    restart: always
+    volumes:
+      - ./loki/promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    networks:
+      - backend_net
+    depends_on:
+      - loki
+
 networks:
   frontend_net:
     driver: bridge
