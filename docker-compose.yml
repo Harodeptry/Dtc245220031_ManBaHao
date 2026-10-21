@@ -29,6 +29,10 @@ services:
     build: ./app
     container_name: attendance_app
     restart: always
+    logging:
+      driver: "json-file"
+      options:
+        tag: "{{.Name}}"
     environment:
       DB_HOST: db
       DB_USER: att_user
@@ -39,7 +43,6 @@ services:
       - backend_net
     depends_on:
       - db
-
   nginx:
     image: nginx:alpine
     container_name: attendance_nginx
