@@ -119,9 +119,7 @@ services:
     container_name: attendance_loki
     restart: always
     logging:
-      driver: "json-file"
-      options:
-        tag: "{{.Name}}"
+      driver: "none"
     volumes:
       - ./loki/loki-config.yml:/etc/loki/local-config.yaml:ro
     networks:
@@ -133,9 +131,7 @@ services:
     container_name: attendance_promtail
     restart: always
     logging:
-      driver: "json-file"
-      options:
-        tag: "{{.Name}}"
+      driver: "none"
     volumes:
       - ./loki/promtail-config.yml:/etc/promtail/config.yml:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
