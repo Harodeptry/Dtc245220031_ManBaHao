@@ -64,6 +64,8 @@ services:
       driver: "json-file"
       options:
         tag: "{{.Name}}"
+    environment:
+      TZ: Asia/Ho_Chi_Minh
     ports:
       - "80:80"
       - "443:443"
@@ -74,6 +76,7 @@ services:
       - frontend_net
     depends_on:
       - app
+      - phpmyadmin
 
   prometheus:
     image: prom/prometheus:v2.45.0
@@ -100,6 +103,7 @@ services:
     ports:
       - "3001:3000"
     environment:
+      - TZ=Asia/Ho_Chi_Minh
       - GF_SECURITY_ADMIN_PASSWORD=AdminStrongPass2026!
     volumes:
       - grafana_data:/var/lib/grafana
