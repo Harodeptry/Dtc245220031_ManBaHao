@@ -6,13 +6,32 @@ const app = express();
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// Thu thap metrics cho Prometheus
+// Thu thap metrics cho Prometheus (Container, Web Server & Database)
 client.collectDefaultMetrics();
 const httpRequestCounter = new client.Counter({
   name: 'http_requests_total',
-  help: 'Tong so luot request',
+  help: 'Tong so luot request HTTP vao Web Server',
   labelNames: ['method', 'route', 'status']
 });
+
+const dbUpGauge = new client.Gauge({
+  name: 'mysql_db_up',
+  help: 'Trang thai ket noi MySQL Database (1 = UP, 0 = DOWN)'
+});
+
+const totalCheckinsGauge = new client.Gauge({
+  name: 'mysql_checkins_records_total',
+  help: 'Tong so luot diem danh luu trong MySQL Database'
+});
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'db',
@@ -39,8 +58,10 @@ async function initDB() {
       `);
       conn.release();
       connected = true;
+      dbUpGauge.set(1);
       console.log('Ket noi MySQL va kiem tra bang checkins thanh cong!');
     } catch (err) {
+      dbUpGauge.set(0);
       console.log('Dang doi MySQL khoi dong... thu lai sau 3 giay');
       await new Promise(res => setTimeout(res, 3000));
     }
@@ -59,9 +80,9 @@ app.get('/', async (req, res) => {
       const date = new Date(r.checkin_time).toLocaleString('vi-VN', { hour12: false });
       return `
         <tr>
-          <td><span class="badge">${r.student_id}</span></td>
-          <td style="font-weight: 500; color: #1e293b;">${r.student_name}</td>
-          <td style="color: #64748b;">${date}</td>
+          <td><span class="badge">${escapeHtml(r.student_id)}</span></td>
+          <td style="font-weight: 500; color: #1e293b;">${escapeHtml(r.student_name)}</td>
+          <td style="color: #64748b;">${escapeHtml(date)}</td>
         </tr>
       `;
     }).join('');
@@ -183,6 +204,13 @@ app.post('/checkin', async (req, res) => {
 });
 
 app.get('/metrics', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT COUNT(*) AS total FROM checkins');
+    dbUpGauge.set(1);
+    totalCheckinsGauge.set(rows[0].total || 0);
+  } catch (err) {
+    dbUpGauge.set(0);
+  }
   res.set('Content-Type', client.register.contentType);
   res.end(await client.register.metrics());
 });

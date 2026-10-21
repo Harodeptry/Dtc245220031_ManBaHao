@@ -69,7 +69,7 @@ flowchart TD
 | `attendance_app` | `app` | Build từ `./app` (`node:18-alpine`) | Nội bộ (`3000`) | `frontend_net`, `backend_net` | Ứng dụng Web Điểm Danh Sinh Viên & cung cấp `/metrics` |
 | `attendance_db` | `db` | `mysql:8.0` | Nội bộ (`3306`) | `backend_net` | Cơ sở dữ liệu MySQL lưu trữ danh sách điểm danh (`checkins`) |
 | `attendance_pma` | `phpmyadmin` | `phpmyadmin/phpmyadmin` | Nội bộ (`80`) | `frontend_net`, `backend_net` | Công cụ quản trị cơ sở dữ liệu MySQL qua giao diện Web |
-| `attendance_prometheus` | `prometheus` | `prom/prometheus:v2.45.0` | Nội bộ (`9090`) | `frontend_net`, `backend_net` | Thu thập và lưu trữ chuỗi thời gian (metrics) từ ứng dụng |
+| `attendance_prometheus` | `prometheus` | `prom/prometheus:v2.45.0` | `9090:9090` | `frontend_net`, `backend_net` | Thu thập và lưu trữ chuỗi thời gian (metrics) từ Container, Web & DB |
 | `attendance_grafana` | `grafana` | `grafana/grafana:10.0.0` | `3001:3000` | `frontend_net` | Trực quan hóa Dashboard giám sát (Prometheus) và truy vấn Log (Loki) |
 | `attendance_loki` | `loki` | `grafana/loki:2.8.4` | Nội bộ (`3100`) | `frontend_net`, `backend_net` | Hệ thống lưu trữ và lập chỉ mục log tập trung |
 | `attendance_promtail` | `promtail` | `grafana/promtail:2.8.4` | Nội bộ (`9080`) | `backend_net` | Agent thu thập log từ Docker containers và đẩy về Loki |
@@ -83,10 +83,17 @@ Dtc245220031_ManBaHao/
 ├── app/
 │   ├── Dockerfile              # Đóng gói ứng dụng Node.js với non-root user (USER node)
 │   ├── package.json            # Khai báo dependencies: express, mysql2, prom-client
-│   └── server.js               # Mã nguồn Web App điểm danh & endpoint /metrics
+│   └── server.js               # Mã nguồn Web App điểm danh & endpoint /metrics (App + DB)
+├── grafana/
+│   └── provisioning/
+│       ├── datasources/
+│       │   └── datasources.yml # Tự động cấu hình nguồn dữ liệu Prometheus & Loki
+│       └── dashboards/
+│           ├── dashboards.yml  # Cấu hình nạp Dashboard tự động
+│           └── attendance-dashboard.json # Dashboard giám sát Container, Web, DB & Logs
 ├── loki/
 │   ├── loki-config.yml         # Cấu hình lưu trữ và schema cho Loki
-│   └── promtail-config.yml     # Cấu hình Promtail đọc Docker JSON logs & gán nhãn
+│   └── promtail-config.yml     # Cấu hình Promtail đọc Docker JSON logs & gán nhãn container_name
 ├── nginx/
 │   ├── default.conf            # Cấu hình Reverse Proxy, chuyển hướng HTTPS & Security Headers
 │   └── ssl/
@@ -94,6 +101,7 @@ Dtc245220031_ManBaHao/
 │       └── nginx.key           # Khóa bí mật SSL (Private Key)
 ├── prometheus/
 │   └── prometheus.yml          # Cấu hình các scrape jobs thu thập metrics
+├── .gitattributes              # Đồng bộ chuẩn ký tự xuống dòng LF trên Linux/Ubuntu
 ├── docker-compose.yml          # File điều phối toàn bộ 8 dịch vụ, mạng và volumes
 └── README.md                   # Tài liệu hướng dẫn triển khai và sử dụng hệ thống
 ```
@@ -104,7 +112,7 @@ Dtc245220031_ManBaHao/
 
 ### 4.1. Yêu cầu môi trường
 * Hệ điều hành: Linux (Ubuntu/Debian/CentOS) hoặc Windows/macOS có cài đặt **Docker Engine** và **Docker Compose v2**.
-* Các cổng `80`, `443`, `3001` trên máy chủ không bị chiếm dụng bởi tiến trình khác.
+* Các cổng `80`, `443`, `3001`, `9090` trên máy chủ không bị chiếm dụng bởi tiến trình khác.
 
 ### 4.2. Các bước triển khai
 
@@ -131,7 +139,8 @@ docker compose ps
 | :--- | :--- | :---: | :---: | :--- |
 | **Web App Điểm Danh** | `https://localhost` *(hoặc `http://localhost` tự chuyển sang HTTPS)* | *(Không yêu cầu)* | *(Không yêu cầu)* | Chấp nhận cảnh báo chứng chỉ tự ký trên trình duyệt |
 | **phpMyAdmin (Quản lý DB)** | `https://localhost/phpmyadmin/` | `att_user` *(hoặc `root`)* | `StrongP@ssw0rd2026` *(hoặc `RootSecurePass2026!`)* | Đi qua Nginx Reverse Proxy HTTPS |
-| **Grafana (Monitoring & Log)** | `http://localhost:3001` | `admin` | `AdminStrongPass2026!` | Dùng để xem Dashboard & truy vấn LogQL |
+| **Grafana (Monitoring & Log)** | `http://localhost:3001` | `admin` | `AdminStrongPass2026!` | Đã tích hợp sẵn Data Sources & Dashboard tự động |
+| **Prometheus UI** | `http://localhost:9090` | *(Không yêu cầu)* | *(Không yêu cầu)* | Kiểm tra `Status -> Targets` (`attendance-app` & `prometheus`) |
 
 ---
 
@@ -156,28 +165,29 @@ docker compose ps
 
 ### 5.2. Giám sát với Prometheus + Grafana (Yêu cầu 4)
 
-1. **Cơ chế thu thập Metrics:**
+1. **Cơ chế thu thập Metrics (Container, Web Server & Database):**
    * Ứng dụng Node.js (`app/server.js`) sử dụng thư viện `prom-client` mở endpoint `/metrics`, cung cấp:
-     * **Metrics tài nguyên container/tiến trình mặc định:** `process_cpu_seconds_total`, `process_resident_memory_bytes`, `nodejs_heap_size_used_bytes`, `nodejs_eventloop_lag_seconds`, v.v.
-     * **Custom Metric theo dõi lưu lượng Web:** `http_requests_total{method, route, status}` đếm tổng số lượt truy cập trang chủ (`GET /`) và số lượt điểm danh thành công (`POST /checkin`).
-2. **Kết nối Data Source trên Grafana (`http://localhost:3001`):**
-   * Đăng nhập Grafana với tài khoản `admin` / `AdminStrongPass2026!`.
-   * Vào **Connections** $\rightarrow$ **Data sources** $\rightarrow$ **Add data source** $\rightarrow$ chọn **Prometheus**.
-   * Tại mục **Prometheus server URL**, nhập: `http://prometheus:9090` $\rightarrow$ nhấn **Save & test**.
-3. **Các câu truy vấn PromQL tiêu biểu để tạo Dashboard trên Grafana:**
-   * Tổng số lượt truy cập và điểm danh theo từng route:
+     * **Metrics tài nguyên Container/Tiến trình:** `process_cpu_seconds_total`, `process_resident_memory_bytes`, `nodejs_heap_size_used_bytes`, `nodejs_eventloop_lag_seconds`, v.v.
+     * **Metrics lưu lượng Web Server:** `http_requests_total{method, route, status}` đếm tổng số lượt truy cập trang chủ (`GET /`) và số lượt điểm danh thành công (`POST /checkin`).
+     * **Metrics giám sát MySQL Database:** `mysql_db_up` (trạng thái kết nối DB `1 = UP`, `0 = DOWN`) và `mysql_checkins_records_total` (tổng số bản ghi điểm danh hiện có trong bảng `checkins`).
+2. **Tự động nạp Data Source & Dashboard trên Grafana (`http://localhost:3001`):**
+   * Dự án đã cấu hình sẵn **Grafana Provisioning** trong thư mục `grafana/provisioning/`. Ngay khi khởi chạy, hai nguồn dữ liệu **Prometheus** (`http://prometheus:9090`) và **Loki** (`http://loki:3100`) cùng bộ Dashboard **"Hệ Thống Điểm Danh Sinh Viên - Giám Sát Toàn Diện"** đã được nạp tự động.
+   * Bạn chỉ cần đăng nhập Grafana (`admin` / `AdminStrongPass2026!`) $\rightarrow$ vào mục **Dashboards** để xem ngay toàn bộ biểu đồ.
+3. **Các câu truy vấn PromQL tiêu biểu:**
+   * Kiểm tra trạng thái hoạt động của MySQL Database và tổng số bản ghi điểm danh:
+     ```promql
+     mysql_db_up
+     mysql_checkins_records_total
+     ```
+   * Tổng số lượt truy cập và điểm danh theo từng route trên Web Server:
      ```promql
      http_requests_total
-     ```
-   * Tốc độ request mỗi giây (Request Rate trong 5 phút):
-     ```promql
-     rate(http_requests_total[5m])
      ```
    * Dung lượng RAM sử dụng của container ứng dụng (MB):
      ```promql
      process_resident_memory_bytes{job="attendance-app"} / 1024 / 1024
      ```
-   * Mức sử dụng CPU của ứng dụng:
+   * Mức sử dụng CPU của container:
      ```promql
      rate(process_cpu_seconds_total{job="attendance-app"}[1m])
      ```
@@ -186,25 +196,29 @@ docker compose ps
 
 ### 5.3. Hệ thống Log tập trung Loki + Promtail & Truy vấn LogQL (Yêu cầu 5)
 
-1. **Kết nối Loki vào Grafana:**
-   * Trên Grafana (`http://localhost:3001`), vào **Connections** $\rightarrow$ **Data sources** $\rightarrow$ **Add data source** $\rightarrow$ chọn **Loki**.
-   * Tại mục **URL**, nhập: `http://loki:3100` $\rightarrow$ nhấn **Save & test**.
-2. **Truy vấn Log bằng LogQL (Vào mục Explore $\rightarrow$ chọn nguồn dữ liệu Loki):**
-   Dưới đây là **4 câu truy vấn LogQL** từ cơ bản đến nâng cao để kiểm tra và trích xuất log:
+1. **Cơ chế thu thập Log & Gán nhãn (`loki/promtail-config.yml`):**
+   * Promtail đọc log JSON của toàn bộ Docker containers, trích xuất `attrs.tag` và tự động gắn nhãn `container_name` (`app`, `nginx`, `db`, `pma`, `prometheus`, `grafana`, `loki`, `promtail`) cùng nhãn `container` (`attendance_app`, `attendance_nginx`,...).
+2. **Truy vấn Log bằng LogQL (Vào mục Explore trên Grafana $\rightarrow$ chọn nguồn dữ liệu Loki):**
+   Dưới đây là **5 câu truy vấn LogQL** từ cơ bản đến nâng cao để kiểm tra và trích xuất log:
 
    * **Query 1 — Xem toàn bộ log thu thập từ tất cả các container Docker trong hệ thống:**
      ```logql
      {job="docker_logs"}
      ```
-   * **Query 2 — Lọc riêng các dòng log phát sinh khi có sinh viên thực hiện điểm danh (`[CHECKIN]`):**
+   * **Query 2 — Xem riêng log của container ứng dụng Web (`app`) hoặc Reverse Proxy (`nginx`):**
      ```logql
-     {job="docker_logs"} |= "[CHECKIN]"
+     {container_name="app"}
      ```
-   * **Query 3 — Tìm kiếm lịch sử điểm danh của một sinh viên cụ thể (theo Mã SV hoặc Họ tên bằng biểu thức chính quy):**
+     *(hoặc `{container_name="nginx"}`, `{container_name="db"}`)*
+   * **Query 3 — Lọc riêng các dòng log phát sinh khi có sinh viên thực hiện điểm danh (`[CHECKIN]`):**
+     ```logql
+     {container_name="app"} |= "[CHECKIN]"
+     ```
+   * **Query 4 — Tìm kiếm lịch sử điểm danh của một sinh viên cụ thể (theo Mã SV hoặc Họ tên bằng biểu thức chính quy):**
      ```logql
      {job="docker_logs"} |= "[CHECKIN]" |~ "DTC245220031|Man Ba Hao"
      ```
-   * **Query 4 — Thống kê số lượt điểm danh thành công theo từng khoảng thời gian 5 phút (Metric Query trên LogQL để vẽ biểu đồ):**
+   * **Query 5 — Thống kê số lượt điểm danh thành công theo từng khoảng thời gian 5 phút (Metric Query trên LogQL):**
      ```logql
      count_over_time({job="docker_logs"} |= "[CHECKIN]" [5m])
      ```

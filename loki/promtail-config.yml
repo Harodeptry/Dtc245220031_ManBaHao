@@ -23,9 +23,16 @@ scrape_configs:
             output: log
             stream: stream
             attrs: attrs
+      - json:
+          expressions:
             tag: tag
+          source: attrs
       - regex:
-          expression: '^/attendance_(?P<container_name>[a-zA-Z0-9_-]+)'
+          expression: '^/?(?P<container>attendance_(?P<container_name>[a-zA-Z0-9_-]+))'
           source: tag
       - labels:
+          stream:
+          container:
           container_name:
+      - output:
+          source: output

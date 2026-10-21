@@ -3,6 +3,10 @@ services:
     image: mysql:8.0
     container_name: attendance_db
     restart: always
+    logging:
+      driver: "json-file"
+      options:
+        tag: "{{.Name}}"
     environment:
       MYSQL_ROOT_PASSWORD: RootSecurePass2026!
       MYSQL_DATABASE: attendance_db
@@ -17,10 +21,15 @@ services:
     image: phpmyadmin/phpmyadmin
     container_name: attendance_pma
     restart: always
+    logging:
+      driver: "json-file"
+      options:
+        tag: "{{.Name}}"
     environment:
       PMA_HOST: db
       PMA_USER: att_user
       PMA_PASSWORD: StrongP@ssw0rd2026
+      PMA_ABSOLUTE_URI: https://localhost/phpmyadmin/
     networks:
       - frontend_net
       - backend_net
@@ -43,10 +52,15 @@ services:
       - backend_net
     depends_on:
       - db
+
   nginx:
     image: nginx:alpine
     container_name: attendance_nginx
     restart: always
+    logging:
+      driver: "json-file"
+      options:
+        tag: "{{.Name}}"
     ports:
       - "80:80"
       - "443:443"
@@ -62,6 +76,12 @@ services:
     image: prom/prometheus:v2.45.0
     container_name: attendance_prometheus
     restart: always
+    logging:
+      driver: "json-file"
+      options:
+        tag: "{{.Name}}"
+    ports:
+      - "9090:9090"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     networks:
@@ -72,19 +92,31 @@ services:
     image: grafana/grafana:10.0.0
     container_name: attendance_grafana
     restart: always
+    logging:
+      driver: "json-file"
+      options:
+        tag: "{{.Name}}"
     ports:
       - "3001:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=AdminStrongPass2026!
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
     networks:
       - frontend_net
     depends_on:
       - prometheus
+      - loki
 
   loki:
     image: grafana/loki:2.8.4
     container_name: attendance_loki
     restart: always
+    logging:
+      driver: "json-file"
+      options:
+        tag: "{{.Name}}"
     volumes:
       - ./loki/loki-config.yml:/etc/loki/local-config.yaml:ro
     networks:
@@ -95,6 +127,10 @@ services:
     image: grafana/promtail:2.8.4
     container_name: attendance_promtail
     restart: always
+    logging:
+      driver: "json-file"
+      options:
+        tag: "{{.Name}}"
     volumes:
       - ./loki/promtail-config.yml:/etc/promtail/config.yml:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
@@ -112,3 +148,4 @@ networks:
 
 volumes:
   db_data:
+  grafana_data:
