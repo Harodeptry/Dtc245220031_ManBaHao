@@ -29,7 +29,6 @@ services:
       PMA_HOST: db
       PMA_USER: att_user
       PMA_PASSWORD: StrongP@ssw0rd2026
-      PMA_ABSOLUTE_URI: https://localhost/phpmyadmin/
     networks:
       - frontend_net
       - backend_net
@@ -80,8 +79,6 @@ services:
       driver: "json-file"
       options:
         tag: "{{.Name}}"
-    ports:
-      - "9090:9090"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     networks:

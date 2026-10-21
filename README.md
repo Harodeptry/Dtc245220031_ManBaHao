@@ -69,7 +69,7 @@ flowchart TD
 | `attendance_app` | `app` | Build từ `./app` (`node:18-alpine`) | Nội bộ (`3000`) | `frontend_net`, `backend_net` | Ứng dụng Web Điểm Danh Sinh Viên & cung cấp `/metrics` |
 | `attendance_db` | `db` | `mysql:8.0` | Nội bộ (`3306`) | `backend_net` | Cơ sở dữ liệu MySQL lưu trữ danh sách điểm danh (`checkins`) |
 | `attendance_pma` | `phpmyadmin` | `phpmyadmin/phpmyadmin` | Nội bộ (`80`) | `frontend_net`, `backend_net` | Công cụ quản trị cơ sở dữ liệu MySQL qua giao diện Web |
-| `attendance_prometheus` | `prometheus` | `prom/prometheus:v2.45.0` | `9090:9090` | `frontend_net`, `backend_net` | Thu thập và lưu trữ chuỗi thời gian (metrics) từ Container, Web & DB |
+| `attendance_prometheus` | `prometheus` | `prom/prometheus:v2.45.0` | Nội bộ (`9090`) | `frontend_net`, `backend_net` | Thu thập và lưu trữ chuỗi thời gian (metrics) từ Container, Web & DB |
 | `attendance_grafana` | `grafana` | `grafana/grafana:10.0.0` | `3001:3000` | `frontend_net` | Trực quan hóa Dashboard giám sát (Prometheus) và truy vấn Log (Loki) |
 | `attendance_loki` | `loki` | `grafana/loki:2.8.4` | Nội bộ (`3100`) | `frontend_net`, `backend_net` | Hệ thống lưu trữ và lập chỉ mục log tập trung |
 | `attendance_promtail` | `promtail` | `grafana/promtail:2.8.4` | Nội bộ (`9080`) | `backend_net` | Agent thu thập log từ Docker containers và đẩy về Loki |
@@ -112,7 +112,7 @@ Dtc245220031_ManBaHao/
 
 ### 4.1. Yêu cầu môi trường
 * Hệ điều hành: Linux (Ubuntu/Debian/CentOS) hoặc Windows/macOS có cài đặt **Docker Engine** và **Docker Compose v2**.
-* Các cổng `80`, `443`, `3001`, `9090` trên máy chủ không bị chiếm dụng bởi tiến trình khác.
+* Các cổng `80`, `443`, `3001` trên máy chủ không bị chiếm dụng bởi tiến trình khác.
 
 ### 4.2. Các bước triển khai
 
@@ -135,12 +135,13 @@ docker compose ps
 
 ### 4.3. Bảng địa chỉ truy cập và Thông tin đăng nhập
 
-| Dịch vụ | Địa chỉ truy cập (URL) | Tài khoản | Mật khẩu | Ghi chú |
-| :--- | :--- | :---: | :---: | :--- |
-| **Web App Điểm Danh** | `https://localhost` *(hoặc `http://localhost` tự chuyển sang HTTPS)* | *(Không yêu cầu)* | *(Không yêu cầu)* | Chấp nhận cảnh báo chứng chỉ tự ký trên trình duyệt |
-| **phpMyAdmin (Quản lý DB)** | `https://localhost/phpmyadmin/` | `att_user` *(hoặc `root`)* | `StrongP@ssw0rd2026` *(hoặc `RootSecurePass2026!`)* | Đi qua Nginx Reverse Proxy HTTPS |
-| **Grafana (Monitoring & Log)** | `http://localhost:3001` | `admin` | `AdminStrongPass2026!` | Đã tích hợp sẵn Data Sources & Dashboard tự động |
-| **Prometheus UI** | `http://localhost:9090` | *(Không yêu cầu)* | *(Không yêu cầu)* | Kiểm tra `Status -> Targets` (`attendance-app` & `prometheus`) |
+> **Lưu ý:** Nếu truy cập trực tiếp trên máy ảo Ubuntu, dùng `localhost`. Nếu truy cập từ trình duyệt trên **máy thật (Windows)** vào máy ảo, thay `localhost` bằng **địa chỉ IP của máy ảo Ubuntu** (ví dụ: `192.168.152.129`).
+
+| Dịch vụ | URL trên Máy Ảo (`localhost`) | URL trên Máy Thật (`IP Máy Ảo`) | Tài khoản | Mật khẩu |
+| :--- | :--- | :--- | :---: | :---: |
+| **Web App Điểm Danh** | `https://localhost` | `https://192.168.152.129` | *(Không yêu cầu)* | *(Không yêu cầu)* |
+| **phpMyAdmin (Quản lý DB)** | `https://localhost/phpmyadmin/` | `https://192.168.152.129/phpmyadmin/` | `att_user` *(hoặc `root`)* | `StrongP@ssw0rd2026` *(hoặc `RootSecurePass2026!`)* |
+| **Grafana (Monitoring & Log)** | `http://localhost:3001` | `http://192.168.152.129:3001` | `admin` | `AdminStrongPass2026!` |
 
 ---
 
