@@ -350,7 +350,7 @@
         "sortOrder": "Descending",
         "wrapLogMessage": true
       },
-      "title": "Nhật Ký Hệ Thống Tập Trung (Loki LogQL: {job=\"docker_logs\"})",
+      "title": "Nhật Ký Hệ Thống Tập Trung (Loki LogQL: {job=\"docker_logs\", container_name!~\"loki|promtail\"})",
       "type": "logs",
       "targets": [
         {
@@ -358,7 +358,7 @@
             "type": "loki",
             "uid": "loki_ds"
           },
-          "expr": "{job=\"docker_logs\"}",
+          "expr": "{job=\"docker_logs\", container_name!~\"loki|promtail\"}",
           "refId": "A"
         }
       ]

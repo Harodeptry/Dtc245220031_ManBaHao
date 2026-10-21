@@ -34,5 +34,8 @@ scrape_configs:
           stream:
           container:
           container_name:
+      - match:
+          selector: '{container_name=~"loki|promtail"}'
+          action: drop
       - output:
           source: output
