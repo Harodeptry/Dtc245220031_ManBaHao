@@ -3,11 +3,13 @@ services:
     image: mysql:8.0
     container_name: attendance_db
     restart: always
+    command: --default-time-zone=+07:00
     logging:
       driver: "json-file"
       options:
         tag: "{{.Name}}"
     environment:
+      TZ: Asia/Ho_Chi_Minh
       MYSQL_ROOT_PASSWORD: RootSecurePass2026!
       MYSQL_DATABASE: attendance_db
       MYSQL_USER: att_user
@@ -26,6 +28,7 @@ services:
       options:
         tag: "{{.Name}}"
     environment:
+      TZ: Asia/Ho_Chi_Minh
       PMA_HOST: db
       PMA_USER: att_user
       PMA_PASSWORD: StrongP@ssw0rd2026
@@ -42,6 +45,7 @@ services:
       options:
         tag: "{{.Name}}"
     environment:
+      TZ: Asia/Ho_Chi_Minh
       DB_HOST: db
       DB_USER: att_user
       DB_PASSWORD: StrongP@ssw0rd2026

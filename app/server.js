@@ -38,6 +38,7 @@ const pool = mysql.createPool({
   user: process.env.DB_USER || 'att_user',
   password: process.env.DB_PASSWORD || 'StrongP@ssw0rd2026',
   database: process.env.DB_NAME || 'attendance_db',
+  timezone: '+07:00',
   waitForConnections: true,
   connectionLimit: 10
 });
@@ -76,8 +77,11 @@ app.get('/', async (req, res) => {
     const [rows] = await pool.query('SELECT * FROM checkins ORDER BY checkin_time DESC LIMIT 10');
     
     let tableRows = rows.map(r => {
-      // Dinh dang lai ngay gio de doc hon
-      const date = new Date(r.checkin_time).toLocaleString('vi-VN', { hour12: false });
+      // Dinh dang ngay gio theo mui gio Viet Nam (UTC+7: Asia/Ho_Chi_Minh)
+      const date = new Date(r.checkin_time).toLocaleString('vi-VN', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        hour12: false
+      });
       return `
         <tr>
           <td><span class="badge">${escapeHtml(r.student_id)}</span></td>
